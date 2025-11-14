@@ -1,0 +1,218 @@
+#include "fw-tlpp-core.th"
+#include "protheus.ch"
+
+#define TABLE_NAME "DSTABLE" 
+
+static __aStruct := {} as array
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} MyTableSqlLite
+Cria um exemplo de tabela local (fisica) utilizando SqlLite
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@return variant, return_description
+@see recomendado utilizar o appserver em modo de administrador.
+/*/
+function MyTableSqlLite()
+    local aValues as array
+
+    if CreateTable()
+        aValues := {"000000000000001", "CAMISETA", CTOD("01/01/2099"), 29.97}
+
+        if SeekLine(aValues[1])         
+            CONOUT("Registro já cadastrado")
+        Else
+            InsertLine(aValues)
+        endIf
+
+        aValues[4] := 25.90
+
+        UpdateLine(aValues)
+
+        if DeleteLine(aValues)
+            CONOUT("Registro excluído com sucesso")
+        else
+            CONOUT("Falha ao excluír registro")
+        endIf
+    else
+        CONOUT("Falha ao abrir a tabela")
+    endIf
+
+    FwFreeArray(aValues)
+return 
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} GetFields
+Obter campos
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@return array, Lista de campos da tabela
+/*/
+//-------------------------------------------------------------------
+static function GetFields() as array
+return {"CODE", "DESCR", "VALIDDT", "PRICE"}
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} GetStruct
+Obter a estrutura de campos
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@return array, lista de campos da estrutura
+/*/
+//-------------------------------------------------------------------
+static function GetStruct() as array
+    local aStruct as array
+
+
+    if len(__aStruct) == 0    
+        aStruct := {}
+        
+        aAdd( aStruct, {{"CODE"}} )
+        aAdd( aStruct, {"CODE"      , "C", 15   , 0} )
+        aAdd( aStruct, {"DESCR"     , "C", 30   , 0} )
+        aAdd( aStruct, {"VALIDDT"   , "D", 8    , 0} )
+        aAdd( aStruct, {"PRICE"     , "N", 12   , 0} )
+
+        __aStruct := aStruct
+    else
+        aStruct := aClone(__aStruct)
+    endIf
+return aStruct
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} CreateTable
+Abrir ou Criar a tabela
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@return logical, Indica se a tabela está aberta
+/*/
+//-------------------------------------------------------------------
+static function CreateTable() as logical
+    local lCreate as logical
+    local aStruct as array
+
+    aStruct := GetStruct()
+    lCreate := FWTblChk(TABLE_NAME, aStruct)
+
+    FwFreeArray(@aStruct)
+return lCreate
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} InsertLine
+Incluir uma nova linha na tabela
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@param aValues, array, lista contendo os valores da linha
+/*/
+//-------------------------------------------------------------------
+static function InsertLine(aValues as array)
+    local aStruct as array`
+
+    aStruct := GetStruct()
+    FWTblSet(TABLE_NAME, aStruct, aValues, .t., GetFields())
+
+    FwFreeArray(@aStruct)
+return 
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} UpdateLine
+Alterar os valores de uma linha
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@param aValues, array, lista contendo os valores da linha
+/*/
+//-------------------------------------------------------------------
+static function UpdateLine(aValues as array) 
+    local aStruct as array
+
+    if SeekLine(aValues[1])
+        aStruct := GetStruct()
+        FWTblSet(TABLE_NAME, aStruct, aValues, .f., GetFields())
+        
+        FwFreeArray(@aStruct)
+    endIf
+return
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} DeleteLine
+Excluir uma linha
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@param aValues, array, lista contendo os valores da linha
+@return logical, indica se a linha foi excluida
+/*/
+//-------------------------------------------------------------------
+static function DeleteLine(aValues as array) as logical
+    local lDeleted := .f. as logical
+
+    if SeekLine(aValues[1])
+        lDeleted := FWTblDel(TABLE_NAME)
+    endIf
+    
+return lDeleted
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} SeekLine
+Pesquisar utilizando o código da linha/registro
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@param cCode, character, Código do registro
+@return logical, Indica se encontrou a linha
+/*/
+//-------------------------------------------------------------------
+static function SeekLine(cCode as character) as logical
+    local aStruct as array
+    local lFound := .f. as logical
+
+    aStruct := GetStruct()
+    lFound := FWTblSeek(TABLE_NAME, aStruct, {cCode}, 1, .F.)
+
+    FwFreeArray(@aStruct)
+return lFound
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} GetLine
+Obter os valores da linha
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@param cCode, character, código da linha
+@return array, valores da linha
+/*/
+//-------------------------------------------------------------------
+static function GetLine(cCode as character) as array
+    Local aValues := {} as array
+
+    aStruct := GetStruct()
+
+    if SeekLine(cCode)
+        aValues := FWTblGet(TABLE_NAME, GetFields())
+    Endif
+
+    FwFreeArray(@aStruct)
+return aValues

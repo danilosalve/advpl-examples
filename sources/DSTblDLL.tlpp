@@ -1,0 +1,176 @@
+#include "fw-tlpp-core.th"
+
+#define TABLE_ALIAS "TBL_DAN"
+#define CHECKSUM_KEY "tD00r$"
+
+static __lCreateTbl := .F. as logical
+static __lOpenTbl := .f. as logical
+
+// Adicionar Checksum na gravação do código do usuário.
+/**
+Que se pode fazer, é só criar um campo de checksum mesmo, concatenar os campos que se acha importante, pegar mais uma chave sua aí, tipo 89rock
+Junta tudo, faz um Sha256 e salva no campo de checksum
+**/
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} MyTblDDL
+Criar uma tabela a quente utilizando a class FwTableDDL
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@return logical, indica se abriu a tabela
+/*/
+//-------------------------------------------------------------------
+function MyTblDDL() as logical
+    Local aTopInfo  as array
+    local oStruct   as object
+    local oTableDDL as object
+
+    oTableDDL := FWTableDDL():New()
+    oStruct := GetStruct()
+    aTopInfo := FWGetTopInfo()
+    oTableDDL:AddDbAcess( aTopInfo[1], aTopInfo[2], aTopInfo[3], ;
+                        aTopInfo[4], aTopInfo[5], aTopInfo[6], AdvConnection() )
+
+    oTableDDL:SetTableStruct(oStruct)
+	oTableDDL:Activate()
+
+    // Se a tabela não existe cria a tabela
+    if !oTableDDL:TblExists()
+        oTableDDL:CreateTable(,,.T.)
+    ElseIf FwDDLCanAlter()
+		oTableDDL:AlterTable()
+    endIf
+
+    // Fecha a tabela
+    //oTableDDL:CloseTable()  
+return oTableDDL:OpenTable()
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} GetStruct
+Obter estrutura de campos da tabela
+
+@type function
+@version 1.0
+@author Danilo Salve
+@since 11/11/2025
+@return object, estrutura de campos da tabela
+/*/
+//-------------------------------------------------------------------
+static function GetStruct() as object
+    local oStruct as object
+
+    oStruct := FWTableStruct():New(TABLE_ALIAS, TABLE_ALIAS, "TOPCONN")
+    // Estrutura de campos da tabela
+    oStruct:AddField("DAN_CODE"     , "C", 006, 0)
+    oStruct:AddField("DAN_NAME"     , "C", 030, 0)
+	oStruct:AddField("DAN_PRICE"    , "N", 012, 2)
+	oStruct:AddField("DAN_RATING"   , "N", 001, 0)
+    oStruct:AddField("DAN_CHKSUM"   , "C", 064, 0)
+    oStruct:AddField("DAN_DTINC"    , "D", 008, 0)
+    oStruct:AddField("DAN_DESCRI"   , "M", 255, 0)
+    // Adiciona a chave primaria da tabela
+    oStruct:SetPrimaryKey({"DAN_CODE"})
+    // Adiciona Indices da tabela
+	oStruct:AddIndex("01",{"DAN_CODE"})
+	oStruct:AddIndex("02",{"DAN_CODE", "DAN_NAME"})
+
+    oStruct:Activate()
+return oStruct
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} checkMyTblDDL
+Verifica se a tabela foi criado
+@type function
+@version 1.0
+@author Danilo Salve
+@since 12/11/2025
+@return logical, Indica que a tabela existe
+/*/
+//-------------------------------------------------------------------
+function checkMyTblDDL() as logical
+    if !__lCreateTbl
+        if !FWTCCanOpen(TABLE_ALIAS) // Se a tabela não existir eu crio a mesma
+            MyTblDDL()
+            __lCreateTbl := .T.
+        EndIf
+    endIf
+return __lCreateTbl
+
+function InsertLnMyTbl(cCode as character, cName as character, nPrice as numeric, nRating as numeric, cDescri as character) as logical
+    Local lInsert := .f. as logical
+
+    if Reclock(TABLE_ALIAS, .t.)
+        (TABLE_ALIAS)->DAN_CODE := cCode
+        (TABLE_ALIAS)->DAN_NAME := cName
+        (TABLE_ALIAS)->DAN_PRICE := nPrice
+        (TABLE_ALIAS)->DAN_RATING := nRating
+        (TABLE_ALIAS)->DAN_CHKSUM := GetCheckSum(cCode, cName)
+        (TABLE_ALIAS)->DAN_DTINC := Date()
+        (TABLE_ALIAS)->DAN_DESCRI := cDescri
+
+        lInsert := .t.
+    endIf
+
+return lInsert
+
+function UpdateLnMyTbl(cCode as character, cName as character, nPrice as numeric, nRating as numeric, cDescri as character) as logical
+    Local lUpdate := .f. as logical
+
+    (TABLE_ALIAS)->(DbSetOrder(1))
+    If (TABLE_ALIAS)->(DbSeek(cCode))
+        if Reclock(TABLE_ALIAS, .f.)    
+            (TABLE_ALIAS)->DAN_NAME := cName
+            (TABLE_ALIAS)->DAN_PRICE := nPrice
+            (TABLE_ALIAS)->DAN_RATING := nRating
+            (TABLE_ALIAS)->DAN_CHKSUM := GetCheckSum(cCode, cName)
+            (TABLE_ALIAS)->DAN_DESCRI := cDescri
+
+            lUpdate := .t.
+            (TABLE_ALIAS)->(MSUnlock())
+        endIf
+    endIf
+return lUpdate
+
+function DeleteLnMyTbl(cCode as character) as logical
+    Local lDeleted := .f. as logical
+
+    (TABLE_ALIAS)->(DbSetOrder(1))
+    If (TABLE_ALIAS)->(DbSeek(cCode))
+        if Reclock(TABLE_ALIAS, .f.) 
+            if (TABLE_ALIAS)->(DBDelete())
+                lDeleted := .t.
+            endIf
+            (TABLE_ALIAS)->(MSUnlock())
+        endif
+    endIf
+return lDeleted
+
+static function GetCheckSum(cCode as character, cName as character) as character
+    Local cValue as character
+
+    cValue := SHA256(cCode + cName + CHECKSUM_KEY)
+return cValue
+
+function OpenMyTbl() as logical 
+    If !__lOpenTbl
+        MyTblDDL()
+        __lOpenTbl := .T.
+    EndIf
+return 
+
+function MyTblLnIsValid(cCode as character) as logical
+    local isValid := .f. as logical
+
+    (TABLE_ALIAS)->(DbSetOrder(1))
+    If (TABLE_ALIAS)->(DbSeek(cCode))
+        if GetCheckSum((TABLE_ALIAS)->DAN_CODE, (TABLE_ALIAS)->DAN_NAME ) == (TABLE_ALIAS)->DAN_CHKSUM
+            isValid := .t.
+        Else
+            DeleteLnMyTbl(cCode)
+            UserException("Parece que houve um problema com seu Token de Autenticação. Para acessar o sistema Protheus corretamente, tente se autenticar novamente")
+        endIf
+    EndIf
+return isValid
