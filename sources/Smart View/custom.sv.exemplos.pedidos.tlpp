@@ -144,6 +144,7 @@ method getSchema() as object class PedidosTReportsBusinessObject
 	self:aliasToSchema("SC5" , {"C5_NUM", "C5_CLIENTE", "C5_LOJACLI", "C5_EMISSAO", "C5_VEND1"})
 	// Adiciona um parâmetro para multipla seleção
 	self:addParameter("MV_FIL"	, "Filial"						, "string"	, .T.)
+	//self:addParameter("CODE"	, "Código (Fake)"				, "string"	, .T.)
 	// Adiciona uma parâmetro de seleção simples
 	self:addParameter("CONDPAG"	, "Cond. Pagamento"				, "string"	, .F.)
 	// Adiciona um parâmetro Lógico
@@ -153,4 +154,5 @@ method getSchema() as object class PedidosTReportsBusinessObject
 	// Adiciona uma consulta padrão do tipo Range no parâmetro de filial
 	self:setCustomURL("MV_FIL"	, "api/framework/v1/genericLookupService/smartview/SM0", 2)
 	self:setCustomURL("CONDPAG"	, "api/framework/v1/genericLookupService/smartview/SE4", 2)
+	//self:setCustomURL("CODE"	, "/api/custom/smartview/v1/options/mySvLookup", 2)
 return self:oSchema

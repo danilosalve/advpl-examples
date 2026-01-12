@@ -1,0 +1,89 @@
+#include "msobject.ch"
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+
+/*/{Protheus.doc} MySVLookup
+Classe para a API de exemplo de LookUp
+
+@type class
+@version 1.0
+@author Danilo Salve
+@since 07/01/2026
+/*/
+class MySVLookup
+	public method new() as object
+
+    @Get("/api/custom/smartview/v1/options/mySvLookup")
+    public method getData() as logical
+endClass
+
+/*/{Protheus.doc} MySVLookup::new
+Obter uma nova instancia da classe MYSvLookup
+
+@type method
+@version 1.0
+@author Danilo Salve
+@since 07/01/2026
+@return object, nova instancia da classe
+/*/
+method new() as object class MySVLookup
+return self
+
+/*/{Protheus.doc} MySVLookup::getData
+Obter os dados páginados
+
+@type method
+@version 1.0
+@author Danilo Salve
+@since 07/01/2026
+@return logical, sempre verdadeiro
+/*/
+method getData() class MySVLookup as logical
+    Local cSearch       as character
+    Local jItem         as json
+    Local jQueryParams  as json
+    Local jResponse     as json
+    Local nPage         := 1 as integer
+    Local nLoop         := 0 as integer
+    Local nTotal        := 2000
+
+    jQueryParams := oRest:getQueryRequest()
+
+    If (jQueryParams != Nil)
+        nPage   := IIf(jQueryParams:hasProperty("page"), Val(jQueryParams["page"]), nPage)
+        cSearch := IIf(jQueryParams:hasProperty("q"),    jQueryParams["q"],         "")
+
+        nPage := IIf(nPage <= 0, 1, nPage)
+    EndIf
+
+    jResponse    := JSONObject():New()
+    jResponse["data"]             := {}
+    jResponse["nextPageUrl"]      := NIL
+    jResponse["remainingRecords"] := 0
+    jResponse["keyProperty"]      := "CODE"
+    jResponse["descriptor"]       := {"CODE": FWHttpEncode("Código"),"DESCR": FWHttpEncode("Descrição")}
+
+    If Empty(cSearch)    
+        For nLoop := IIF(nPage == 1, 1, ((nPage - 1) * 100) + 1) to IIF(nPage == 1, 100, nPage * 100)
+            jItem := {"CODE": FWHttpEncode(StrZero(nLoop, 6)),"DESCR": FWHttpEncode("Linha: " + CValToChar(nLoop))}
+            AAdd(jResponse["data"], jItem)
+        next
+
+        If (nLoop - 1) <= (nTotal - 1)
+            jResponse["remainingRecords"] := nTotal - (nLoop - 1)
+            jResponse["nextPageUrl"] := oRest:getFullURLRequest() + "?page=" + CValToChar(nPage + 1) + IIf(jQueryParams:hasProperty("q"), "&q=" + jQueryParams["q"], "")
+        EndIf
+    ElseIf Len(cSearch) == 6
+        jItem := {"CODE": FWHttpEncode(cSearch),"DESCR": FWHttpEncode("Linha: " + CValToChar(Val(cSearch)))}
+        AAdd(jResponse["data"], jItem)
+    EndIf
+
+    oRest:setResponse(jResponse)
+    oRest:setStatusCode(200)
+    oRest:setKeyHeaderResponse("Content-Type", "application/json; charset=utf-8")
+    oRest:setKeyHeaderResponse("Accept-Encoding", "UTF-8")
+    
+    FwFreeObj(@jItem)
+    FwFreeObj(@jResponse)
+    FwFreeObj(jQueryParams)
+return .t. 
