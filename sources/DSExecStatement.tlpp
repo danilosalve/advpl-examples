@@ -1,0 +1,31 @@
+#include 'fw-tlpp-core.th'
+#include 'protheus.ch'
+
+function DsExecStatement(aEmailList as array)    
+    Local cQuery    := "" as character
+    Local oExec     as object
+    Local nEmail    := 0 as integer
+
+    fwnulldefault aEmailList := {}
+
+    cQuery := "SELECT COUNT(1) AS COUNT FROM " + RetSqlName("SA1") + " WHERE A1_EMAIL = ? AND D_E_L_E_T_ = ?"
+    oExec := FwExecStatement():New(ChangeQuery(cQuery))
+
+    For nEmail := 1 to Len(aEmailList)
+        oExec:SetString(1, aEmailList[nEmail])
+        oExec:SetString(2, ' ')
+
+        cAlias := oExec:OpenAlias()
+
+        If (cAlias)->COUNT > 1
+            CONOUT("E-MAIIL DUPLICADO: " + aEmailList[nEmail])
+        Else
+            CONOUT("E-MAIL NÃO DUPLICADO")
+        Endif
+
+        (cAlias)->(DbCloseArea())
+    next
+
+    oExec:Destroy()
+    FwFreeObj( oExec )
+return 
