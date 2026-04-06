@@ -1,7 +1,8 @@
 #include 'fw-tlpp-core.th'
 #include 'protheus.ch'
 
-function DsExecStatement(aEmailList as array)    
+function DsExecStatement(aEmailList as array)
+    Local aArea     := FwGetArea() as array
     Local cQuery    := "" as character
     Local oExec     as object
     Local nEmail    := 0 as integer
@@ -9,7 +10,12 @@ function DsExecStatement(aEmailList as array)
     fwnulldefault aEmailList := {}
 
     cQuery := "SELECT COUNT(1) AS COUNT FROM " + RetSqlName("SA1") + " WHERE A1_EMAIL = ? AND D_E_L_E_T_ = ?"
-    oExec := FwExecStatement():New(ChangeQuery(cQuery))
+
+    If Len(aEmailList) > 0
+        oExec := FwExecStatement():New(ChangeQuery(cQuery))
+    Else
+        CONOUT("A LISTA DE E-MAIL ESTA VAZIA!!!")
+    EndIf
 
     For nEmail := 1 to Len(aEmailList)
         oExec:SetString(1, aEmailList[nEmail])
@@ -18,7 +24,7 @@ function DsExecStatement(aEmailList as array)
         cAlias := oExec:OpenAlias()
 
         If (cAlias)->COUNT > 1
-            CONOUT("E-MAIIL DUPLICADO: " + aEmailList[nEmail])
+            CONOUT("E-MAIL DUPLICADO: " + aEmailList[nEmail])
         Else
             CONOUT("E-MAIL NÃO DUPLICADO")
         Endif
@@ -26,6 +32,10 @@ function DsExecStatement(aEmailList as array)
         (cAlias)->(DbCloseArea())
     next
 
-    oExec:Destroy()
+    If Len(aEmailList) > 0
+        oExec:Destroy()
+    EndIf
+    
     FwFreeObj( oExec )
+    FwRestArea( aArea )
 return 
