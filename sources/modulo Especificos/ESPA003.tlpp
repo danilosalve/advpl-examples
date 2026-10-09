@@ -46,11 +46,11 @@ static function execute(cFunction as character)
     local cError as character
 
     try
-        cFunction := IIF(at("()", cFunction) == 0, rtrim(cFunction) + "()", cFunction)
+        cFunction := IIF(at("(", cFunction) == 0 .or. at(")", cFunction) == 0, rtrim(cFunction) + "()", rtrim(cFunction))
         Eval(&('{ || ' + cFunction + ' } '))
     catch oError
-        cError := "Ops ocorreu um erro durante a execução " + oError:description
-        conOut( oError:description )
+        cError := I18N("Ops ocorreu um erro durante a execução: #1[ERROR]#", {oError:description})
+        conOut( cError )
         alert( cError )
     endtry
 return 
